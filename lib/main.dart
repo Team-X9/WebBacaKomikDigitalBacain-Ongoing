@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'view/login_page.dart';
+import 'controller/library_controller.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LibraryController.instance.load();
   runApp(const MyApp());
 }
 

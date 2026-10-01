@@ -1,507 +1,59 @@
-// lib/views/reader_page.dart
+// lib/view/reader_page.dart
 //
-// VIEW: halaman detail komik (mirip referensi web) yang menampilkan
-// banner, poster, tombol aksi, statistik, sinopsis, tag genre/author/dll,
-// serta daftar chapter dalam bentuk ListView polos (tanpa thumbnail).
+// VIEW: tampilan baca webtoon (scroll panjang). Dibuka dari
+// ComicDetailPage saat tombol baca atau salah satu chapter ditekan.
+// Daftar gambar halaman diambil dari ComicController.getChapterPages().
 //
-// Saat sebuah chapter (atau tombol "Baca") ditekan, aplikasi berpindah ke
-// _ChapterReadingView, yaitu tampilan baca webtoon (scroll panjang).
-//
-// CATATAN DATA: untuk contoh, gambar chapter diambil dari satu berkas
-// aset lokal (assets/images/01.jpg) yang dipakai untuk semua chapter.
-// Saat backend/API sudah ada, ganti `_pagesForChapter()` supaya mengambil
-// daftar gambar chapter yang sesungguhnya.
+// Lebar gambar dibatasi ke kolom tengah (default 720px, seperti situs
+// baca komik umumnya) dan bisa diperbesar/diperkecil lewat tombol zoom.
+// Di HP (layar < 720px) kolom otomatis selebar layar.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../controller/comic_controller.dart';
+import '../controller/library_controller.dart';
 import '../model/comic_model.dart';
 import '../theme.dart';
 
-class ReaderPage extends StatefulWidget {
-  final Comic comic;
-  const ReaderPage({super.key, required this.comic});
-
-  @override
-  State<ReaderPage> createState() => _ReaderPageState();
-}
-
-class _ReaderPageState extends State<ReaderPage> {
-  bool _descExpanded = false;
-  int _activeTab = 0; // 0 = Chapters, 1 = Info, 2 = Novel
-  final TextEditingController _searchCtrl = TextEditingController();
-  String _query = '';
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  /// Daftar chapter (nomor + label waktu), dari yang terbaru ke terlama.
-  /// Belum ada data waktu asli per-chapter, jadi label dihasilkan secara
-  /// sederhana supaya tetap terlihat masuk akal (mis. "8 jam lalu",
-  /// "1 hari lalu", dst).
-  List<_ChapterItem> get _chapters {
-    final total = widget.comic.chapter;
-    return List.generate(total, (i) {
-      final number = total - i;
-      String time;
-      if (i == 0) {
-        time = widget.comic.timeAgo;
-      } else if (i < 6) {
-        time = '$i hari lalu';
-      } else {
-        time = '${i * 2} hari lalu';
-      }
-      return _ChapterItem(number: number, timeAgo: time);
-    });
-  }
-
-  List<_ChapterItem> get _filteredChapters {
-    final q = _query.trim();
-    if (q.isEmpty) return _chapters;
-    return _chapters.where((c) => c.number.toString().contains(q)).toList();
-  }
-
-  void _openChapter(int chapterNumber) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _ChapterReadingView(
-          comic: widget.comic,
-          startChapter: chapterNumber,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final comic = widget.comic;
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildHeaderBanner(context, comic)),
-          SliverToBoxAdapter(child: _buildInfoSection(comic)),
-          SliverToBoxAdapter(child: _buildTabsAndSearch()),
-          if (_activeTab == 0)
-            _buildChapterList()
-          else
-            SliverToBoxAdapter(child: _buildComingSoon()),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ],
-      ),
-    );
-  }
-
-  // ---------------- BANNER ----------------
-  Widget _buildHeaderBanner(BuildContext context, Comic comic) {
-    return SizedBox(
-      height: 230,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: Image.asset(comic.coverUrl, fit: BoxFit.cover),
-          ),
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.35),
-                    AppColors.background,
-                  ],
-                  stops: const [0.0, 1.0],
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _circleIconButton(
-                    Icons.arrow_back_rounded,
-                    () => Navigator.pop(context),
-                  ),
-                  _circleIconButton(
-                    Icons.home_rounded,
-                    () => Navigator.popUntil(context, (r) => r.isFirst),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // poster kecil, overlap ke bawah banner
-          Positioned(
-            left: 16,
-            bottom: -46,
-            child: Container(
-              width: 96,
-              height: 130,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.asset(comic.coverUrl, fit: BoxFit.cover),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _circleIconButton(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.45),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: Colors.white, size: 20),
-      ),
-    );
-  }
-
-  // ---------------- INFO KOMIK ----------------
-  Widget _buildInfoSection(Comic comic) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 54, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            comic.title,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${comic.type} ${comic.countryFlag}',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _openChapter(comic.chapter),
-                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                  label: const Text('Baca'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape:
-                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _outlinedIconButton(Icons.bookmark_border_rounded, 'Bookmark'),
-              const SizedBox(width: 8),
-              _outlinedIconButton(Icons.playlist_add_rounded, 'Tambah ke Readlist'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _statChip(Icons.star_rounded, comic.rating.toStringAsFixed(1), AppColors.gold),
-              const SizedBox(width: 16),
-              _statChip(Icons.bookmark_rounded, '${comic.chapter * 37}', AppColors.primaryLight),
-              const SizedBox(width: 16),
-              _statChip(Icons.remove_red_eye_rounded, '${comic.chapter * 84}',
-                  AppColors.textSecondary),
-              const SizedBox(width: 16),
-              _statChip(Icons.emoji_events_rounded, '${comic.chapter * 11}',
-                  AppColors.accentPink),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildDescription(comic),
-          const SizedBox(height: 16),
-          _buildTagsRow('Genre', const ['Action', 'Adventure', 'Fantasy']),
-          const SizedBox(height: 10),
-          _buildTagsRow('Author', const ['Wuer Manhua']),
-          const SizedBox(height: 10),
-          _buildTagsRow('Artist', const ['Wuer Manhua']),
-          const SizedBox(height: 10),
-          _buildTagsRow('Format', [comic.type]),
-          const SizedBox(height: 10),
-          _buildTagsRow('Type', const ['Project']),
-          const SizedBox(height: 16),
-          Container(height: 1, color: AppColors.border),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDescription(Comic comic) {
-    final text =
-        comic.description.isNotEmpty ? comic.description : 'Belum ada sinopsis untuk komik ini.';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          text,
-          maxLines: _descExpanded ? null : 3,
-          overflow: _descExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.5),
-        ),
-        GestureDetector(
-          onTap: () => setState(() => _descExpanded = !_descExpanded),
-          child: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              _descExpanded ? 'Tutup' : 'Baca Selengkapnya',
-              style: const TextStyle(
-                  color: AppColors.primaryLight, fontSize: 12.5, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTagsRow(String label, List<String> tags) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 66,
-          child: Text(label,
-              style:
-                  const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700)),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: tags.map(_tagChip).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _tagChip(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 11.5)),
-    );
-  }
-
-  Widget _statChip(IconData icon, String value, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: color),
-        const SizedBox(width: 4),
-        Text(value,
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
-
-  Widget _outlinedIconButton(IconData icon, String tooltip) {
-    return Tooltip(
-      message: tooltip,
-      child: Container(
-        width: 46,
-        height: 46,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Icon(icon, color: Colors.white, size: 20),
-      ),
-    );
-  }
-
-  // ---------------- TAB + PENCARIAN CHAPTER ----------------
-  Widget _buildTabsAndSearch() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _tabButton('Chapters', Icons.menu_book_rounded, 0),
-              const SizedBox(width: 20),
-              _tabButton('Info', Icons.info_outline_rounded, 1),
-              const SizedBox(width: 20),
-              _tabButton('Novel', Icons.description_outlined, 2),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (_activeTab == 0)
-            TextField(
-              controller: _searchCtrl,
-              onChanged: (v) => setState(() => _query = v),
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Cari Chapter, Contoh: 1',
-                prefixIcon:
-                    const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
-                suffixIcon: Container(
-                  margin: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.swap_vert_rounded, color: Colors.white, size: 18),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabButton(String label, IconData icon, int index) {
-    final active = _activeTab == index;
-    final color = active ? AppColors.primaryLight : AppColors.textSecondary;
-    return GestureDetector(
-      onTap: () => setState(() => _activeTab = index),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 5),
-              Text(label,
-                  style: TextStyle(
-                      color: color,
-                      fontSize: 13,
-                      fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Container(height: 2, width: 50, color: active ? AppColors.primaryLight : Colors.transparent),
-        ],
-      ),
-    );
-  }
-
-  // ---------------- DAFTAR CHAPTER (ListView polos, tanpa gambar) ----------------
-  Widget _buildChapterList() {
-    final chapters = _filteredChapters;
-    if (chapters.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 40),
-          child: Center(
-            child: Text('Chapter tidak ditemukan',
-                style: TextStyle(color: AppColors.textSecondary)),
-          ),
-        ),
-      );
-    }
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, i) => _chapterTile(chapters[i]),
-          childCount: chapters.length,
-        ),
-      ),
-    );
-  }
-
-  Widget _chapterTile(_ChapterItem chapter) {
-    return InkWell(
-      onTap: () => _openChapter(chapter.number),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.menu_book_rounded, color: AppColors.textSecondary, size: 18),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text('Chapter ${chapter.number}',
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-            ),
-            Text(chapter.timeAgo,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-            const SizedBox(width: 6),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildComingSoon() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 60),
-      child: Center(
-        child: Text('Belum tersedia', style: TextStyle(color: AppColors.textSecondary)),
-      ),
-    );
-  }
-}
-
-class _ChapterItem {
-  final int number;
-  final String timeAgo;
-  _ChapterItem({required this.number, required this.timeAgo});
-}
+// Pengaturan lebar & zoom
+const double _kBaseWidth = 720; // lebar kolom baca pada zoom 100%
+const double _kMinZoom = 0.5;
+const double _kMaxZoom = 1.5;
+const double _kZoomStep = 0.1;
 
 // =====================================================================
 // TAMPILAN BACA (webtoon, scroll panjang) — dibuka saat tombol "Baca"
 // atau salah satu item chapter di atas ditekan.
 // =====================================================================
-class _ChapterReadingView extends StatefulWidget {
+class ChapterReaderPage extends StatefulWidget {
   final Comic comic;
   final int startChapter;
-  const _ChapterReadingView({required this.comic, required this.startChapter});
+  const ChapterReaderPage({
+    super.key,
+    required this.comic,
+    required this.startChapter,
+  });
 
   @override
-  State<_ChapterReadingView> createState() => _ChapterReadingViewState();
+  State<ChapterReaderPage> createState() => _ChapterReaderPageState();
 }
 
-class _ChapterReadingViewState extends State<_ChapterReadingView> {
+class _ChapterReaderPageState extends State<ChapterReaderPage> {
   late int _chapter;
   bool _showControls = true;
+  double _zoom = 1.0;
   final ScrollController _scrollCtrl = ScrollController();
+  final ComicController _controller = ComicController();
 
   @override
   void initState() {
     super.initState();
     _chapter = widget.startChapter;
+    // ditunda sampai frame selesai supaya tidak memicu rebuild saat build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      LibraryController.instance.recordRead(widget.comic, _chapter);
+    });
   }
 
   @override
@@ -512,33 +64,38 @@ class _ChapterReadingViewState extends State<_ChapterReadingView> {
 
   void _toggleControls() => setState(() => _showControls = !_showControls);
 
+  void _changeZoom(double delta) {
+    setState(() {
+      final next = (_zoom + delta).clamp(_kMinZoom, _kMaxZoom);
+      _zoom = (next * 10).round() / 10; // hindari error floating point
+    });
+  }
+
+  void _resetZoom() => setState(() => _zoom = 1.0);
+
   void _goToChapter(int chapter) {
     if (chapter < 1 || chapter > widget.comic.chapter) return;
     setState(() => _chapter = chapter);
-    _scrollCtrl.jumpTo(0);
+    if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
+    LibraryController.instance.recordRead(widget.comic, chapter);
   }
 
-  /// Daftar path gambar untuk chapter yang sedang dibaca.
-  ///
-  /// CONTOH: semua chapter memakai satu gambar yang sama dari
-  /// assets/images/01.jpg. Jika nanti ada gambar per chapter, tinggal
-  /// ganti isi list ini, misalnya:
-  ///   ['assets/images/${widget.comic.id}_ch$chapter/01.jpg', ...]
-  /// atau ambil dari API (ComicController.getChapterPages()).
-  List<String> _pagesForChapter(int chapter) => const [
-        'assets/images/01.jpg',
-      ];
+  List<String> _pagesForChapter(int chapter) =>
+      _controller.getChapterPages(widget.comic, chapter);
 
   @override
   Widget build(BuildContext context) {
     final comic = widget.comic;
     final pages = _pagesForChapter(_chapter);
+    final maxContentWidth = _kBaseWidth * _zoom;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
           // ---------------- KONTEN BACA ----------------
+          // ListView tetap selebar layar (scroll & tap berfungsi sampai
+          // tepi), sedangkan tiap item dibatasi & ditaruh di tengah.
           GestureDetector(
             onTap: _toggleControls,
             behavior: HitTestBehavior.opaque,
@@ -547,19 +104,27 @@ class _ChapterReadingViewState extends State<_ChapterReadingView> {
               padding: const EdgeInsets.only(top: 0, bottom: 32),
               itemCount: pages.length + 1,
               itemBuilder: (context, i) {
+                final Widget child;
                 if (i == pages.length) {
-                  return _EndOfChapter(
+                  child = _EndOfChapter(
                     comic: comic,
                     chapter: _chapter,
                     onNextChapter: _chapter < comic.chapter
                         ? () => _goToChapter(_chapter + 1)
                         : null,
                   );
+                } else {
+                  child = _ReaderPageImage(
+                    path: pages[i],
+                    pageNumber: i + 1,
+                    totalPages: pages.length,
+                  );
                 }
-                return _ReaderPageImage(
-                  path: pages[i],
-                  pageNumber: i + 1,
-                  totalPages: pages.length,
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxContentWidth),
+                    child: child,
+                  ),
                 );
               },
             ),
@@ -571,7 +136,14 @@ class _ChapterReadingViewState extends State<_ChapterReadingView> {
             top: _showControls ? 0 : -90,
             left: 0,
             right: 0,
-            child: _TopBar(comic: comic, chapter: _chapter),
+            child: _TopBar(
+              comic: comic,
+              chapter: _chapter,
+              zoom: _zoom,
+              onZoomOut: _zoom > _kMinZoom ? () => _changeZoom(-_kZoomStep) : null,
+              onZoomIn: _zoom < _kMaxZoom ? () => _changeZoom(_kZoomStep) : null,
+              onZoomReset: _resetZoom,
+            ),
           ),
 
           // ---------------- BAR BAWAH (navigasi chapter) ----------------
@@ -633,8 +205,9 @@ class _ChapterReadingViewState extends State<_ChapterReadingView> {
                       return ListTile(
                         title: Text('Chapter $chapterNumber',
                             style: TextStyle(
-                                color:
-                                    active ? AppColors.primaryLight : Colors.white,
+                                color: active
+                                    ? AppColors.primaryLight
+                                    : Colors.white,
                                 fontWeight: active
                                     ? FontWeight.w700
                                     : FontWeight.w400)),
@@ -663,7 +236,19 @@ class _ChapterReadingViewState extends State<_ChapterReadingView> {
 class _TopBar extends StatelessWidget {
   final Comic comic;
   final int chapter;
-  const _TopBar({required this.comic, required this.chapter});
+  final double zoom;
+  final VoidCallback? onZoomOut;
+  final VoidCallback? onZoomIn;
+  final VoidCallback onZoomReset;
+
+  const _TopBar({
+    required this.comic,
+    required this.chapter,
+    required this.zoom,
+    required this.onZoomOut,
+    required this.onZoomIn,
+    required this.onZoomReset,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -672,7 +257,7 @@ class _TopBar extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.black.withOpacity(0.85), Colors.transparent],
+          colors: [Colors.black.withValues(alpha: 0.85), Colors.transparent],
         ),
       ),
       child: SafeArea(
@@ -703,6 +288,27 @@ class _TopBar extends StatelessWidget {
                   ],
                 ),
               ),
+              // ---- kontrol zoom ----
+              _zoomButton(Icons.remove_rounded, onZoomOut, 'Perkecil'),
+              Tooltip(
+                message: 'Reset zoom',
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: onZoomReset,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                    child: Text(
+                      '${(zoom * 100).round()}%',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ),
+              _zoomButton(Icons.add_rounded, onZoomIn, 'Perbesar'),
               IconButton(
                 onPressed: () {},
                 icon: const Icon(Icons.bookmark_border_rounded,
@@ -712,6 +318,17 @@ class _TopBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _zoomButton(IconData icon, VoidCallback? onTap, String tooltip) {
+    return IconButton(
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      onPressed: onTap,
+      icon: Icon(icon,
+          color: onTap != null ? Colors.white : AppColors.textSecondary,
+          size: 22),
     );
   }
 }
@@ -739,7 +356,7 @@ class _BottomBar extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
-          colors: [Colors.black.withOpacity(0.9), Colors.transparent],
+          colors: [Colors.black.withValues(alpha: 0.9), Colors.transparent],
         ),
       ),
       child: SafeArea(
@@ -790,8 +407,8 @@ class _BottomBar extends StatelessWidget {
 }
 
 // ---------------- SATU HALAMAN BACA (gambar asli) ----------------
-// Lebar mengikuti layar, tinggi mengikuti rasio gambar, sehingga strip
-// panjang (webtoon) tampil utuh tanpa terpotong.
+// Lebar mengikuti kolom (dibatasi induknya), tinggi mengikuti rasio
+// gambar, sehingga strip panjang (webtoon) tampil utuh tanpa terpotong.
 class _ReaderPageImage extends StatelessWidget {
   final String path;
   final int pageNumber;
@@ -806,13 +423,18 @@ class _ReaderPageImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
+    // Decode pada lebar maksimum (zoom tertinggi) supaya gambar tidak
+    // di-decode ulang setiap kali zoom berubah, tapi tetap hemat memori.
+    final decodeWidth =
+        (math.min(mq.size.width, _kBaseWidth * _kMaxZoom) * mq.devicePixelRatio)
+            .round();
+
     return Image.asset(
       path,
       width: double.infinity,
       fit: BoxFit.fitWidth,
       gaplessPlayback: true,
-      // batasi resolusi decode agar hemat memori pada gambar yang sangat tinggi
-      cacheWidth: (mq.size.width * mq.devicePixelRatio).round(),
+      cacheWidth: decodeWidth,
       errorBuilder: (context, error, stackTrace) => AspectRatio(
         aspectRatio: 0.72,
         child: Container(
@@ -848,6 +470,7 @@ class _EndOfChapter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: AppColors.background,
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
       child: Column(
         children: [
@@ -872,8 +495,8 @@ class _EndOfChapter extends StatelessWidget {
               onPressed: onNextChapter,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 22, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),

@@ -20,6 +20,15 @@ class Comic {
   bool _isUpdate; // badge "UP" pada card update
   String _description; // sinopsis singkat, dipakai di banner hero
 
+  // ---- Field tambahan untuk halaman detail ----
+  List<String> _genres;
+  String _author;
+  String _artist;
+  String _status; // "Ongoing" | "Completed" | "Hiatus"
+  int _viewCount;
+  int _bookmarkCount;
+  int _voteCount;
+
   Comic({
     required String id,
     required String title,
@@ -35,6 +44,13 @@ class Comic {
     bool isNew = false,
     bool isHot = false,
     bool isUpdate = false,
+    List<String> genres = const [],
+    String author = '-',
+    String artist = '-',
+    String status = 'Ongoing',
+    int viewCount = 0,
+    int bookmarkCount = 0,
+    int voteCount = 0,
   })  : _id = id,
         _title = title,
         _coverUrl = coverUrl,
@@ -48,7 +64,14 @@ class Comic {
         _isNew = isNew,
         _isHot = isHot,
         _isUpdate = isUpdate,
-        _description = description;
+        _description = description,
+        _genres = List<String>.of(genres),
+        _author = author,
+        _artist = artist,
+        _status = status,
+        _viewCount = viewCount,
+        _bookmarkCount = bookmarkCount,
+        _voteCount = voteCount;
 
   // ---------- GETTER ----------
   String get id => _id;
@@ -65,6 +88,13 @@ class Comic {
   bool get isHot => _isHot;
   bool get isUpdate => _isUpdate;
   String get description => _description;
+  List<String> get genres => _genres;
+  String get author => _author;
+  String get artist => _artist;
+  String get status => _status;
+  int get viewCount => _viewCount;
+  int get bookmarkCount => _bookmarkCount;
+  int get voteCount => _voteCount;
 
   // ---------- SETTER ----------
   set title(String value) => _title = value;
@@ -80,4 +110,11 @@ class Comic {
   set isHot(bool value) => _isHot = value;
   set isUpdate(bool value) => _isUpdate = value;
   set description(String value) => _description = value;
+  set genres(List<String> value) => _genres = value;
+  set author(String value) => _author = value;
+  set artist(String value) => _artist = value;
+  set status(String value) => _status = value;
+  set viewCount(int value) => _viewCount = value;
+  set bookmarkCount(int value) => _bookmarkCount = value;
+  set voteCount(int value) => _voteCount = value;
 }

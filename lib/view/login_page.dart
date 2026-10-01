@@ -3,10 +3,9 @@
 // VIEW: halaman login. Memanggil AuthController (Controller) untuk
 // memvalidasi input, tidak pernah mengakses "database" secara langsung.
 //
-// Desain: konsep split-panel (foto + testimoni di kiri, form di kanan)
-// seperti referensi, tapi palet warna tetap memakai AppColors (dark +
-// aksen ungu BACAIN), bukan skema terang referensi. Panel foto hanya
-// tampil di layar lebar; di HP tetap 1 kolom.
+// Desain: konsep split-panel (foto + teks di kiri, form di kanan).
+// Palet warna memakai AppColors (dark + aksen ungu BACAIN).
+// Panel foto hanya tampil di layar lebar; di HP tetap 1 kolom.
 
 import 'package:flutter/material.dart';
 import '../controller/auth_controller.dart';
@@ -43,6 +42,8 @@ class _LoginPageState extends State<LoginPage> {
       _error = null;
     });
     await Future.delayed(const Duration(milliseconds: 600)); // simulasi API
+    if (!mounted) return;
+
     final result = _authController.login(_idCtrl.text, _passCtrl.text);
     setState(() => _loading = false);
 
@@ -50,7 +51,6 @@ class _LoginPageState extends State<LoginPage> {
       setState(() => _error = result);
       return;
     }
-    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -117,6 +117,8 @@ class _LoginPageState extends State<LoginPage> {
         Image.asset(
           'assets/Yaemiko.png',
           fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              Container(color: AppColors.surfaceLight),
         ),
         Container(
           decoration: BoxDecoration(
@@ -124,9 +126,9 @@ class _LoginPageState extends State<LoginPage> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                AppColors.background.withOpacity(0.10),
-                AppColors.background.withOpacity(0.55),
-                AppColors.background.withOpacity(0.95),
+                AppColors.background.withValues(alpha: 0.10),
+                AppColors.background.withValues(alpha: 0.55),
+                AppColors.background.withValues(alpha: 0.95),
               ],
               stops: const [0.0, 0.55, 1.0],
             ),
@@ -140,26 +142,97 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              Text(
-                '"Update paling cepat, koleksi paling lengkap."',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  height: 1.3,
+            children: [
+              // Badge
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.auto_stories_rounded,
+                      color: AppColors.primaryLight,
+                      size: 15,
+                    ),
+                    const SizedBox(width: 7),
+                    const Text(
+                      'PLATFORM BACA DIGITAL',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: 16),
-              Text('bacain.com',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14)),
-              SizedBox(height: 2),
-              Text('Manhwa, manga, dan novel ringan terbaik dari Jepang, Korea, dan China.',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
+
+              const SizedBox(height: 16),
+
+              // Judul utama
+              const Text(
+                'Temukan cerita favoritmu.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                  height: 1.15,
+                  letterSpacing: -0.5,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Deskripsi
+              Text(
+                'Baca manhwa, manga, dan novel ringan pilihan dalam satu tempat.',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // Info kecil
+              Row(
+                children: [
+                  _infoItem(Icons.menu_book_rounded, 'Manhwa'),
+                  const SizedBox(width: 18),
+                  _infoItem(Icons.auto_stories_rounded, 'Manga'),
+                  const SizedBox(width: 18),
+                  _infoItem(Icons.bookmark_rounded, 'Novel'),
+                ],
+              ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _infoItem(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: AppColors.primaryLight, size: 16),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -248,9 +321,10 @@ class _LoginPageState extends State<LoginPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.redAccent.withOpacity(0.1),
+                color: Colors.redAccent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                border:
+                    Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -278,7 +352,7 @@ class _LoginPageState extends State<LoginPage> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: BoxDecoration(
-              color: AppColors.surfaceLight.withOpacity(0.6),
+              color: AppColors.surfaceLight.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: AppColors.border),
             ),
@@ -362,24 +436,12 @@ class _LoginPageState extends State<LoginPage> {
       mainAxisAlignment:
           centered ? MainAxisAlignment.center : MainAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            gradient: AppColors.gradientPrimary,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(Icons.auto_stories_rounded,
-              color: Colors.white, size: 24),
-        ),
-        const SizedBox(width: 10),
-        const Text(
-          'BACAIN',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.2,
-          ),
+        Image.asset(
+          'assets/images/Logo.png',
+          width: 100,
+          height: 100,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const SizedBox(width: 100, height: 100),
         ),
       ],
     );
@@ -418,8 +480,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-/// Text field dengan border yang menyala warna primary saat difokus,
-/// meniru highlight pada referensi desain.
+/// Text field dengan border yang menyala warna primary saat difokus.
 class _AppTextField extends StatefulWidget {
   final TextEditingController controller;
   final String hint;
@@ -447,7 +508,7 @@ class _AppTextFieldState extends State<_AppTextField> {
   void initState() {
     super.initState();
     _focusNode.addListener(() {
-      setState(() => _focused = _focusNode.hasFocus);
+      if (mounted) setState(() => _focused = _focusNode.hasFocus);
     });
   }
 
@@ -462,7 +523,7 @@ class _AppTextFieldState extends State<_AppTextField> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight.withOpacity(0.55),
+        color: AppColors.surfaceLight.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: _focused ? AppColors.primary : AppColors.border,
@@ -481,9 +542,11 @@ class _AppTextFieldState extends State<_AppTextField> {
           focusedBorder: InputBorder.none,
           hintText: widget.hint,
           hintStyle: const TextStyle(color: AppColors.textSecondary),
-          prefixIcon: Icon(widget.icon, color: AppColors.textSecondary, size: 20),
+          prefixIcon:
+              Icon(widget.icon, color: AppColors.textSecondary, size: 20),
           suffixIcon: widget.suffix,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
         ),
       ),
     );

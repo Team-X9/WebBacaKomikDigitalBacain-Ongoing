@@ -1,3 +1,4 @@
+import '../model/chapter_model.dart';
 import '../model/comic_model.dart';
 
 class ComicController {
@@ -88,7 +89,7 @@ class ComicController {
       'The Demon King Overrun By Heroes',
       'Terminally-Ill Genius Dark Knight',
     ];
-    return List.generate(titles.length, (i) {
+    return _enrichAll(List.generate(titles.length, (i) {
       final id = 'rec_$i';
       return Comic(
         id: id,
@@ -102,7 +103,7 @@ class ComicController {
         isNew: i < 2,
         isHot: i % 3 == 0,
       );
-    });
+    }));
   }
 
   List<Comic> getUpdates() {
@@ -120,7 +121,7 @@ class ComicController {
       'The Player Hides His Past',
       'The Return Of the Crazy Demon',
     ];
-    return List.generate(titles.length, (i) {
+    return _enrichAll(List.generate(titles.length, (i) {
       final id = 'upd_$i';
       return Comic(
         id: id,
@@ -134,7 +135,7 @@ class ComicController {
         countryFlag: i % 2 == 0 ? '🇰🇷' : '🇨🇳',
         isUpdate: i % 2 == 0,
       );
-    });
+    }));
   }
 
   List<Comic> getPopular({String range = 'Harian'}) {
@@ -152,7 +153,7 @@ class ComicController {
       'Klan Naga Yang Terlupakan',
       'Guru Bela Diri Bawah Tanah',
     ];
-    return List.generate(titles.length, (i) {
+    return _enrichAll(List.generate(titles.length, (i) {
       // Foto diambil berdasarkan index judul (tetap), bukan berdasarkan
       // `range`, supaya "Elegeed" selalu pakai foto yang sama walau
       // range-nya Harian/Mingguan/Bulanan.
@@ -168,8 +169,65 @@ class ComicController {
         countryFlag: i % 2 == 0 ? '🇰🇷' : '🇨🇳',
         isHot: true,
       );
+    }));
+  }
+
+  // ---------- METADATA DETAIL (placeholder) ----------
+  // Sementara dihasilkan deterministik dari id, supaya satu komik selalu
+  // punya genre/author/statistik yang sama. Saat backend/API ada, hapus
+  // bagian ini dan isi field langsung dari data server.
+  static const List<List<String>> _genrePool = [
+    ['Action', 'Adventure', 'Fantasy'],
+    ['Action', 'Martial Arts', 'Drama'],
+    ['Fantasy', 'Comedy', 'Isekai'],
+    ['Action', 'Supernatural', 'Horror'],
+    ['Adventure', 'Fantasy', 'Reincarnation'],
+    ['Action', 'Fantasy', 'Regression'],
+  ];
+  static const List<String> _authorPool = [
+    'Wuer Manhua', 'Kim Dojin', 'Lee Haneul', 'Park Seojun',
+    'Chen Yuwei', 'Han Minjae', 'Yoon Seora', 'Liu Zhenhua',
+  ];
+  static const List<String> _statusPool = [
+    'Ongoing', 'Ongoing', 'Ongoing', 'Completed', 'Hiatus',
+  ];
+
+  List<Comic> _enrichAll(List<Comic> list) {
+    for (final c in list) {
+      final seed = c.id.codeUnits.fold<int>(0, (a, b) => a + b);
+      c.genres = List<String>.of(_genrePool[seed % _genrePool.length]);
+      c.author = _authorPool[seed % _authorPool.length];
+      c.artist = _authorPool[(seed + 3) % _authorPool.length];
+      c.status = _statusPool[seed % _statusPool.length];
+      c.viewCount = c.chapter * 1000 + seed * 53;
+      c.bookmarkCount = c.chapter * 37 + seed;
+      c.voteCount = c.chapter * 11 + seed % 40;
+    }
+    return list;
+  }
+
+  // ---------- CHAPTER ----------
+  /// Daftar chapter dari yang terbaru ke terlama. Label waktu masih
+  /// dibuat sederhana (belum ada data waktu asli per chapter).
+  List<Chapter> getChapters(Comic comic) {
+    final total = comic.chapter;
+    return List.generate(total, (i) {
+      final String time;
+      if (i == 0) {
+        time = comic.timeAgo;
+      } else if (i < 6) {
+        time = '$i hari lalu';
+      } else {
+        time = '${i * 2} hari lalu';
+      }
+      return Chapter(number: total - i, timeAgo: time);
     });
   }
+
+  /// Path gambar halaman untuk satu chapter. Contoh: semua chapter memakai
+  /// satu gambar yang sama. Ganti dengan data asli dari API nanti.
+  List<String> getChapterPages(Comic comic, int chapter) =>
+      const ['assets/images/01.jpg'];
 
   /// Mencari komik berdasarkan judul (case-insensitive), digabung dari
   /// semua sumber (Rekomendasi 3 tipe, Update, Populer) lalu di-dedupe
@@ -230,7 +288,7 @@ class ComicController {
       ),
     ];
 
-    return List.generate(data.length, (i) {
+    return _enrichAll(List.generate(data.length, (i) {
       final cover = i < _bannerCovers.length ? _bannerCovers[i] : _defaultCover;
       return Comic(
         id: 'banner_$i',
@@ -245,6 +303,6 @@ class ComicController {
         isNew: true,
         isHot: true,
       );
-    });
+    }));
   }
 }

@@ -5,9 +5,12 @@
 
 import 'package:flutter/material.dart';
 import '../controller/auth_controller.dart';
+import '../controller/library_controller.dart';
 import '../model/user_model.dart';
 import '../theme.dart';
 import 'login_page.dart';
+import 'history_page.dart';
+import 'favorites_page.dart';
 
 class ProfilePage extends StatelessWidget {
   final AuthController authController;
@@ -32,7 +35,10 @@ class ProfilePage extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           _buildHeader(context, user),
-          _buildStats(user),
+          ListenableBuilder(
+            listenable: LibraryController.instance,
+            builder: (context, _) => _buildStats(user),
+          ),
           const SizedBox(height: 20),
           _buildMenuSection(context),
           const SizedBox(height: 24),
@@ -135,10 +141,10 @@ class ProfilePage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _statItem('Favorit', user.favoriteCount.toString(),
+          _statItem('Favorit', LibraryController.instance.favoriteCount.toString(),
               Icons.favorite_rounded, AppColors.accentPink),
           _divider(),
-          _statItem('Dibaca', user.readCount.toString(),
+          _statItem('Dibaca', LibraryController.instance.historyCount.toString(),
               Icons.menu_book_rounded, AppColors.primaryLight),
           _divider(),
           _statItem('Komentar', user.commentCount.toString(),
@@ -177,8 +183,6 @@ class ProfilePage extends StatelessWidget {
   // memang perlu menonjol sebagai aksi destruktif.
   Widget _buildMenuSection(BuildContext context) {
     final items = [
-      _MenuData(Icons.history_rounded, 'Riwayat Baca'),
-      _MenuData(Icons.bookmark_rounded, 'Komik Favorit'),
       _MenuData(Icons.download_rounded, 'Unduhan'),
       _MenuData(Icons.notifications_none_rounded, 'Notifikasi'),
       _MenuData(Icons.settings_outlined, 'Pengaturan Akun'),
@@ -187,6 +191,16 @@ class ProfilePage extends StatelessWidget {
 
     return Column(
       children: [
+        _menuTile(
+          _MenuData(Icons.history_rounded, 'Riwayat Baca'),
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const HistoryPage())),
+        ),
+        _menuTile(
+          _MenuData(Icons.bookmark_rounded, 'Komik Favorit'),
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const FavoritesPage())),
+        ),
         for (int i = 0; i < items.length; i++) _menuTile(items[i]),
         _menuTile(
           _MenuData(Icons.logout_rounded, 'Keluar', color: Colors.redAccent),
