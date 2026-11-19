@@ -1,13 +1,15 @@
 // lib/view/login_page.dart
 //
-// VIEW: halaman login. Memanggil AuthController (Controller) untuk
-// memvalidasi input, tidak pernah mengakses "database" secara langsung.
+// VIEW: halaman login. Memanggil AuthController (Controller) yang
+// memverifikasi akun ke database MySQL lewat API backend; View tidak
+// pernah mengakses database secara langsung.
 //
 // Desain: konsep split-panel (foto + teks di kiri, form di kanan).
 // Palet warna memakai AppColors (dark + aksen ungu BACAIN).
 // Panel foto hanya tampil di layar lebar; di HP tetap 1 kolom.
 
 import 'package:flutter/material.dart';
+import '../config.dart';
 import '../controller/auth_controller.dart';
 import '../theme.dart';
 import 'home_page.dart';
@@ -21,8 +23,8 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _authController = AuthController();
-  final _idCtrl = TextEditingController(text: 'senkuu');
-  final _passCtrl = TextEditingController(text: '123456');
+  final _idCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
 
   bool _obscure = true;
   bool _loading = false;
@@ -37,14 +39,19 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
     setState(() {
       _loading = true;
       _error = null;
     });
-    await Future.delayed(const Duration(milliseconds: 600)); // simulasi API
-    if (!mounted) return;
 
-    final result = _authController.login(_idCtrl.text, _passCtrl.text);
+    // Verifikasi ke database lewat API backend.
+    final result = await _authController.login(
+      _idCtrl.text,
+      _passCtrl.text,
+      remember: _rememberMe,
+    );
+    if (!mounted) return;
     setState(() => _loading = false);
 
     if (result != null) {
@@ -264,7 +271,7 @@ class _LoginPageState extends State<LoginPage> {
           const SizedBox(height: 8),
           _AppTextField(
             controller: _idCtrl,
-            hint: 'senkuu@baca.in',
+            hint: 'email atau username',
             icon: Icons.person_outline_rounded,
           ),
           const SizedBox(height: 16),
@@ -348,18 +355,21 @@ class _LoginPageState extends State<LoginPage> {
             onTap: _loading ? null : _submit,
           ),
 
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceLight.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
+          if (ApiConfig.useDummyAuth) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceLight.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              alignment: Alignment.center,
+              child: const Text('Demo: senkuu / 123456',
+                  style:
+                      TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             ),
-            alignment: Alignment.center,
-            child: const Text('Demo: senkuu / 123456',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-          ),
+          ],
 
           const SizedBox(height: 24),
           Row(

@@ -1,16 +1,30 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
-import 'view/login_page.dart';
+import 'controller/auth_controller.dart';
 import 'controller/library_controller.dart';
+import 'view/home_page.dart';
+import 'view/login_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LibraryController.instance.load();
-  runApp(const MyApp());
+
+  // Masuk otomatis jika ada sesi tersimpan yang masih berlaku.
+  final auth = AuthController();
+  final loggedIn = await auth.restoreSession();
+
+  runApp(MyApp(startLoggedIn: loggedIn, authController: auth));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool startLoggedIn;
+  final AuthController authController;
+
+  const MyApp({
+    super.key,
+    required this.startLoggedIn,
+    required this.authController,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +33,9 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       scrollBehavior: AppScrollBehavior(),
-      home: const LoginPage(),
+      home: startLoggedIn
+          ? HomePage(authController: authController)
+          : const LoginPage(),
     );
   }
 }
